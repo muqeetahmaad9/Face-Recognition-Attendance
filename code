@@ -1,0 +1,114 @@
+
+---
+
+## **📜 Python Code (face_attendance.py)**
+
+Create a file named **`face_attendance.py`** and paste this code:
+
+```python
+import os
+import cv2
+import numpy as np
+import face_recognition
+import pandas as pd
+import time
+
+# Create dataset directory
+dataset_dir = "dataset"
+if not os.path.exists(dataset_dir):
+    os.makedirs(dataset_dir)
+
+# Load known faces
+known_encodings = []
+known_names = []
+
+# Check if dataset exists
+dataset_exists = len(os.listdir(dataset_dir)) > 0
+
+if not dataset_exists:
+    print("⚡ No dataset found! Capturing images for the first person...")
+
+    name = input("Enter your name: ")
+    person_dir = os.path.join(dataset_dir, name)
+    os.makedirs(person_dir, exist_ok=True)
+
+    cap = cv2.VideoCapture(0)
+    count = 0
+
+    while count < 5:
+        ret, frame = cap.read()
+        if not ret:
+            continue
+
+        img_path = os.path.join(person_dir, f"{count}.jpg")
+        cv2.imwrite(img_path, frame)
+        count += 1
+        print(f"📸 Image {count} captured.")
+
+        cv2.imshow("Capturing Images", frame)
+        if cv2.waitKey(500) & 0xFF == ord('q'):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+    print("✅ Dataset captured successfully!")
+    time.sleep(5)  # Wait for 5 seconds before proceeding
+
+# Load known faces
+for person in os.listdir(dataset_dir):
+    person_path = os.path.join(dataset_dir, person)
+    for img_name in os.listdir(person_path):
+        img_path = os.path.join(person_path, img_name)
+        image = face_recognition.load_image_file(img_path)
+        encoding = face_recognition.face_encodings(image)
+        if encoding:
+            known_encodings.append(encoding[0])
+            known_names.append(person)
+
+print("🔍 Starting face recognition...")
+
+# Initialize attendance file
+attendance_file = "attendance.csv"
+if not os.path.exists(attendance_file):
+    df = pd.DataFrame(columns=["Name", "Time"])
+    df.to_csv(attendance_file, index=False)
+
+cap = cv2.VideoCapture(0)
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        continue
+
+    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    face_locations = face_recognition.face_locations(rgb_frame)
+    face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
+
+    for face_encoding, face_location in zip(face_encodings, face_locations):
+        matches = face_recognition.compare_faces(known_encodings, face_encoding)
+        name = "Unknown"
+
+        if True in matches:
+            match_index = matches.index(True)
+            name = known_names[match_index]
+
+            # Mark attendance
+            df = pd.read_csv(attendance_file)
+            if name not in df["Name"].values:
+                new_entry = pd.DataFrame([[name, pd.Timestamp.now()]], columns=["Name", "Time"])
+                df = pd.concat([df, new_entry], ignore_index=True)
+                df.to_csv(attendance_file, index=False)
+                print(f"✅ Attendance marked for {name}")
+
+        top, right, bottom, left = face_location
+        cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
+        cv2.putText(frame, name, (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+
+    cv2.imshow("Face Recognition Attendance", frame)
+
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()
+print("📌 Attendance system stopped.")
