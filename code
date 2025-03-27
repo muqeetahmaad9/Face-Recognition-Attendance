@@ -1,114 +1,118 @@
-
----
-
-## **📜 Python Code (face_attendance.py)**
-
-Create a file named **`face_attendance.py`** and paste this code:
-
-```python
-import os
+from flask import Flask, render_template, request, Response, jsonify
 import cv2
 import numpy as np
 import face_recognition
-import pandas as pd
-import time
+import os
+import datetime
+import csv
 
-# Create dataset directory
-dataset_dir = "dataset"
-if not os.path.exists(dataset_dir):
-    os.makedirs(dataset_dir)
+app = Flask(__name__)
 
-# Load known faces
-known_encodings = []
+# Initialize Camera
+camera = cv2.VideoCapture(0)
+known_faces = []
 known_names = []
+faces_folder = "faces"
+csv_file = "attendance.csv"
 
-# Check if dataset exists
-dataset_exists = len(os.listdir(dataset_dir)) > 0
+# Ensure necessary folders exist
+if not os.path.exists(faces_folder):
+    os.makedirs(faces_folder)
 
-if not dataset_exists:
-    print("⚡ No dataset found! Capturing images for the first person...")
-
-    name = input("Enter your name: ")
-    person_dir = os.path.join(dataset_dir, name)
-    os.makedirs(person_dir, exist_ok=True)
-
-    cap = cv2.VideoCapture(0)
-    count = 0
-
-    while count < 5:
-        ret, frame = cap.read()
-        if not ret:
-            continue
-
-        img_path = os.path.join(person_dir, f"{count}.jpg")
-        cv2.imwrite(img_path, frame)
-        count += 1
-        print(f"📸 Image {count} captured.")
-
-        cv2.imshow("Capturing Images", frame)
-        if cv2.waitKey(500) & 0xFF == ord('q'):
-            break
-
-    cap.release()
-    cv2.destroyAllWindows()
-    print("✅ Dataset captured successfully!")
-    time.sleep(5)  # Wait for 5 seconds before proceeding
+# Ensure CSV file exists
+if not os.path.exists(csv_file):
+    with open(csv_file, "w", newline="") as file:
+        writer = csv.writer(file)
+        writer.writerow(["Name", "Date", "Time", "Day"])
 
 # Load known faces
-for person in os.listdir(dataset_dir):
-    person_path = os.path.join(dataset_dir, person)
-    for img_name in os.listdir(person_path):
-        img_path = os.path.join(person_path, img_name)
-        image = face_recognition.load_image_file(img_path)
-        encoding = face_recognition.face_encodings(image)
-        if encoding:
-            known_encodings.append(encoding[0])
-            known_names.append(person)
+def load_known_faces():
+    global known_faces, known_names
+    known_faces = []
+    known_names = []
+    for filename in os.listdir(faces_folder):
+        img_path = os.path.join(faces_folder, filename)
+        img = face_recognition.load_image_file(img_path)
+        encodings = face_recognition.face_encodings(img)
+        if encodings:
+            known_faces.append(encodings[0])
+            known_names.append(filename.split(".")[0])
 
-print("🔍 Starting face recognition...")
+load_known_faces()
 
-# Initialize attendance file
-attendance_file = "attendance.csv"
-if not os.path.exists(attendance_file):
-    df = pd.DataFrame(columns=["Name", "Time"])
-    df.to_csv(attendance_file, index=False)
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-cap = cv2.VideoCapture(0)
+@app.route('/add_user', methods=['POST'])
+def add_user():
+    name = request.form['name'].strip()
 
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        continue
+    if not name:
+        return jsonify({"message": "Name cannot be empty!"})
+
+    # Check if user already exists
+    if f"{name}.jpg" in os.listdir(faces_folder):
+        return jsonify({"message": f"User {name} already exists!"})
+
+    success, frame = camera.read()
+    if success:
+        img_path = os.path.join(faces_folder, f"{name}.jpg")
+        cv2.imwrite(img_path, frame)
+
+        # Reload face data
+        load_known_faces()
+        return jsonify({"message": f"User {name} added successfully!"})
+    else:
+        return jsonify({"message": "Failed to capture image. Try again!"})
+
+@app.route('/recognize_face')
+def recognize_face():
+    success, frame = camera.read()
+    
+    if not success:
+        return jsonify({"message": "Error accessing camera!"})
 
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     face_locations = face_recognition.face_locations(rgb_frame)
     face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
 
-    for face_encoding, face_location in zip(face_encodings, face_locations):
-        matches = face_recognition.compare_faces(known_encodings, face_encoding)
-        name = "Unknown"
-
+    name = "Unknown"
+    for encoding in face_encodings:
+        matches = face_recognition.compare_faces(known_faces, encoding)
         if True in matches:
             match_index = matches.index(True)
             name = known_names[match_index]
 
-            # Mark attendance
-            df = pd.read_csv(attendance_file)
-            if name not in df["Name"].values:
-                new_entry = pd.DataFrame([[name, pd.Timestamp.now()]], columns=["Name", "Time"])
-                df = pd.concat([df, new_entry], ignore_index=True)
-                df.to_csv(attendance_file, index=False)
-                print(f"✅ Attendance marked for {name}")
+            # Save attendance
+            with open(csv_file, "a", newline="") as file:
+                writer = csv.writer(file)
+                writer.writerow([name, str(datetime.date.today()), datetime.datetime.now().strftime("%H:%M:%S"), datetime.datetime.now().strftime("%A")])
 
-        top, right, bottom, left = face_location
-        cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
-        cv2.putText(frame, name, (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+            return jsonify({
+                "name": name,
+                "date": str(datetime.date.today()),
+                "time": datetime.datetime.now().strftime("%H:%M:%S"),
+                "day": datetime.datetime.now().strftime("%A"),
+                "message": f"Welcome, {name}!"
+            })
 
-    cv2.imshow("Face Recognition Attendance", frame)
+    return jsonify({"name": "Unknown", "message": "Face not recognized! Please add user."})
 
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+@app.route('/video_feed')
+def video_feed():
+    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-cap.release()
-cv2.destroyAllWindows()
-print("📌 Attendance system stopped.")
+def generate_frames():
+    while True:
+        success, frame = camera.read()
+        if not success:
+            continue
+        else:
+            ret, buffer = cv2.imencode('.jpg', frame)
+            frame = buffer.tobytes()
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+
+if __name__ == "__main__":
+    app.run(debug=True)
