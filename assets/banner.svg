@@ -1,0 +1,49 @@
+<svg width="900" height="200" viewBox="0 0 900 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Face Recognition Attendance">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0d0603"/>
+      <stop offset="55%" stop-color="#26100a"/>
+      <stop offset="100%" stop-color="#3d1a0d"/>
+    </linearGradient>
+
+    <pattern id="mot" width="150" height="150" patternUnits="userSpaceOnUse">
+      <g fill="none" stroke="#ff7a1a" stroke-width="1.1" opacity="0.24">
+        <circle cx="75" cy="75" r="30"/><circle cx="75" cy="75" r="14"/>
+        <path d="M75 30 V56 M75 94 V120 M30 75 H56 M94 75 H120"/>
+      </g>
+      <g stroke="#00d9ff" stroke-width="1" opacity="0.12">
+        <path d="M0 20 H150 M0 60 H150 M0 100 H150 M0 140 H150"/>
+      </g>
+    </pattern>
+    <linearGradient id="scan" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00d9ff" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#00d9ff" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#00d9ff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="4" result="g"/>
+      <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="900" height="200" fill="url(#bg)"/>
+  <rect width="900" height="200" fill="url(#mot)"/>
+  <rect width="900" height="34" fill="url(#scan)" opacity="0.5"/>
+
+  <g fill="none" stroke="#00d9ff" stroke-width="2.4" opacity="0.85">
+    <path d="M22 52 V22 H52"/><path d="M848 22 H878 V52"/>
+    <path d="M22 148 V178 H52"/><path d="M848 178 H878 V148"/>
+  </g>
+
+  <text x="60" y="70" font-family="Consolas, 'Courier New', monospace" font-size="14"
+        fill="#ff7a1a" opacity="0.78" letter-spacing="2.5">&gt; attend --recognize live</text>
+
+  <text x="60" y="120" font-family="Consolas, 'Courier New', monospace"
+        font-size="38" font-weight="bold" fill="#ff7a1a" filter="url(#glow)"
+        letter-spacing="2">Face Recognition Attendance</text>
+
+  <text x="62" y="152" font-family="Consolas, 'Courier New', monospace"
+        font-size="15" fill="#00d9ff" opacity="0.92" letter-spacing="1.2">Flask attendance system using live face recognition</text>
+
+  <rect x="60" y="164" width="150" height="2.5" fill="#ff7a1a" opacity="0.85"/>
+</svg>
