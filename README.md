@@ -34,7 +34,7 @@ Marks attendance automatically from a webcam feed using face recognition, loggin
 
 ```bash
 pip install flask opencv-python face_recognition numpy
-python code
+python app.py
 ```
 
 ### 👤 Author
